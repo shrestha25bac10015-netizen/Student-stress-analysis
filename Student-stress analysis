@@ -1,0 +1,114 @@
+# 1. Basic setup
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.ensemble import RandomForestClassifier
+
+# 2. Load data
+# Replace with your actual file name
+df = pd.read_csv("student_stress.csv")
+
+print(df.head())
+print(df.info())
+print(df.describe())
+
+# 3. Basic cleaning (example)
+# Drop exact duplicates
+df = df.drop_duplicates()
+
+# Handle missing values (simple example: drop rows with any NA)
+df = df.dropna()
+
+# 4. Encode categorical columns (example)
+cat_cols = df.select_dtypes(include=["object"]).columns
+df_encoded = pd.get_dummies(df, columns=cat_cols, drop_first=True)
+
+# 5. Quick EDA: relationships between sleep, study load, and stress
+# Adjust column names based on your dataset
+# Example assumed column names:
+#   "Stress_Level" (target), "Sleep_Hours", "Study_Hours"
+
+# Distribution of stress level
+plt.figure(figsize=(5, 4))
+sns.countplot(x="Stress_Level", data=df)
+plt.title("Stress Level Distribution")
+plt.show()
+
+# Sleep vs Stress
+plt.figure(figsize=(5, 4))
+sns.boxplot(x="Stress_Level", y="Sleep_Hours", data=df)
+plt.title("Sleep Hours vs Stress Level")
+plt.show()
+
+# Study load vs Stress
+plt.figure(figsize=(5, 4))
+sns.boxplot(x="Stress_Level", y="Study_Hours", data=df)
+plt.title("Study Hours vs Stress Level")
+plt.show()
+
+# Correlation heatmap (numerical features only)
+plt.figure(figsize=(10, 8))
+sns.heatmap(df_encoded.corr(), cmap="coolwarm", center=0)
+plt.title("Correlation Heatmap")
+plt.show()
+
+# 6. Prepare data for modeling
+# Example: classify Stress_Level (low/medium/high etc.)
+X = df_encoded.drop("Stress_Level", axis=1)
+y = df["Stress_Level"]          # original labels (if they are categorical)
+
+# If Stress_Level is text labels, encode to numbers
+from sklearn.preprocessing import LabelEncoder
+le = LabelEncoder()
+y_encoded = le.fit_transform(y)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
+)
+
+# Scale numeric features (optional but often helpful)
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# 7. Train a model (Random Forest example)
+rf = RandomForestClassifier(
+    n_estimators=200,
+    max_depth=None,
+    random_state=42
+)
+rf.fit(X_train_scaled, y_train)
+
+# 8. Evaluate model
+y_pred = rf.predict(X_test_scaled)
+
+print("Classification Report:")
+print(classification_report(y_test, y_pred))
+
+cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(4, 3))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+            xticklabels=le.classes_, yticklabels=le.classes_)
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Confusion Matrix")
+plt.show()
+
+# 9. Feature importance (which factors matter most for stress)
+importances = rf.feature_importances_
+feat_imp = pd.Series(importances, index=X.columns).sort_values(ascending=False)
+
+print("Top 10 important features:")
+print(feat_imp.head(10))
+
+plt.figure(figsize=(8, 5))
+feat_imp.head(10).plot(kind="barh")
+plt.gca().invert_yaxis()
+plt.title("Top 10 Features Affecting Stress")
+plt.xlabel("Importance")
+plt.show()
